@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fake News Detector — Hindi & English</title>
+  <meta name="description" content="AI-powered fake news detector for Hindi and English articles with confidence score." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <main class="container">
+    <header>
+      <div class="badge"><span class="dot"></span> AI-powered · Hindi & English</div>
+      <h1><span class="grad">Fake News</span> Detector</h1>
+      <p class="lead">Paste a news article or headline in English or हिन्दी. Get a Real / Fake verdict with confidence score.</p>
+    </header>
+
+    <section class="card">
+      <label for="news">News content</label>
+      <textarea id="news" rows="7" placeholder="Paste a headline or article here… / यहाँ कोई खबर पेस्ट करें…"></textarea>
+      <div class="row">
+        <span id="counter" class="muted">0 chars</span>
+        <button id="analyze">Analyze news</button>
+      </div>
+      <div id="error" class="error hidden"></div>
+    </section>
+
+    <section id="result" class="hidden">
+      <div class="card result-card">
+        <div class="result-head">
+          <div>
+            <div class="muted small">Verdict</div>
+            <div id="verdict" class="verdict"></div>
+            <div class="muted small">Detected language: <span id="lang"></span></div>
+          </div>
+          <div id="ring" class="ring"><div class="ring-inner"><span id="conf">0%</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="muted small center">AI predictions can be wrong. Always cross-check with trusted sources.</footer>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const text = $("news"), btn = $("analyze"), err = $("error"), counter = $("counter");
+    text.addEventListener("input", () => counter.textContent = `${text.value.length} chars`);
+
+    btn.addEventListener("click", async () => {
+      err.classList.add("hidden");
+      const value = text.value.trim();
+      if (value.length < 10) { err.textContent = "Please enter at least 10 characters."; err.classList.remove("hidden"); return; }
+      btn.disabled = true; btn.textContent = "Analyzing…";
+      try {
+        const r = await fetch("/api/predict", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ text: value }) });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Request failed");
+        renderResult(data);
+      } catch (e) {
+        err.textContent = e.message; err.classList.remove("hidden");
+      } finally {
+        btn.disabled = false; btn.textContent = "Analyze news";
+      }
+    });
+
+    function renderResult(d) {
+      const isFake = d.verdict === "fake";
+      const color = isFake ? "var(--danger)" : "var(--success)";
+      $("result").classList.remove("hidden");
+      const v = $("verdict");
+      v.textContent = isFake ? "Likely FAKE" : "Likely REAL";
+      v.style.color = color;
+      $("lang").textContent = d.language;
+      $("conf").textContent = `${Math.round(d.confidence)}%`;
+      $("ring").style.background = `conic-gradient(${color} ${d.confidence * 3.6}deg, #2a2f45 0)`;
+      document.querySelector(".result-card").style.boxShadow = `0 0 0 1px ${color}55`;
+    }
+  </script>
+</body>
+</html>
